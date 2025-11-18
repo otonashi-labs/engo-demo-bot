@@ -496,7 +496,6 @@ def format_report_header(brew_type: str, timestamp: float, baselines: list, mode
     
     Args:
         brew_type: Type of brew (e.g., "15_min")
-        timestamp: Unix timestamp
         baselines: List of baseline types used
         model: LLM model used for analysis
         
@@ -510,7 +509,6 @@ def format_report_header(brew_type: str, timestamp: float, baselines: list, mode
 📊 **ENGO Blockchain Analysis Report**
 
 🕒 **Brew Type:** {brew_type}
-📅 **Timestamp:** {dt_str}
 📈 **Baselines:** {', '.join(baselines)}
 🤖 **Model:** {model if model else 'Claude 3.5 Sonnet'}
 
