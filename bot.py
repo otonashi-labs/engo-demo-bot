@@ -11,6 +11,8 @@ import time
 import json
 import logging
 import asyncio
+import signal
+import sys
 from typing import Optional, Tuple, Dict, Any
 from datetime import datetime
 from pathlib import Path
@@ -37,7 +39,6 @@ class SensitiveDataFilter(logging.Filter):
     def __init__(self):
         super().__init__()
         # Pattern to match bot tokens in URLs: bot<digits>:<token>
-        # Matches: bot8347903335:AAGoVkeea0pmKhn4iYjh2rTmQMMtbtGVYMI
         # Telegram bot tokens are typically 35+ characters after the colon
         self.bot_token_pattern = re.compile(r'bot\d+:[a-zA-Z0-9_-]{20,}', re.IGNORECASE)
         # Pattern to match API keys (Bearer tokens)
@@ -259,6 +260,11 @@ Available models:
 {models_list}
 Default model: {DEFAULT_MODEL}
 
+IMPORTANT: For model selection:
+- If user mentions "grok" without specifying "grok-fast" or "grok-code", select "x-ai/grok-4" (not "x-ai/grok-4-fast")
+- Only select "x-ai/grok-4-fast" if user explicitly mentions "grok-fast", "grok 4 fast", or similar
+- Only select "x-ai/grok-code-fast-1" if user explicitly mentions "grok-code" or "grokcode"
+
 Default analysis objective: "{DEFAULT_ANALYSIS_OBJECTIVE}"
 
 Extract the following from the user query:
@@ -355,6 +361,38 @@ User query: "{query}"
                 if model and model not in AVAILABLE_MODELS.values():
                     # Try to find by key
                     model = AVAILABLE_MODELS.get(model.lower(), None)
+                
+                # Fix: If user mentions "grok" but not specifically "grok-fast" or "grok-code",
+                # select "grok-4" instead of "grok-4-fast"
+                query_lower = query.lower()
+                grok_fast_model = AVAILABLE_MODELS.get("grok-fast")
+                grok_4_model = AVAILABLE_MODELS.get("grok-4")
+                
+                # Check if model is grok-fast (either by ID or key)
+                is_grok_fast = (
+                    model == grok_fast_model or 
+                    model == "x-ai/grok-4-fast" or 
+                    model == "grok-fast"
+                )
+                
+                # Check if user specifically mentioned "grok-fast" variants
+                mentioned_grok_fast = any(term in query_lower for term in [
+                    "grok-fast", "grok 4 fast", "grok4fast", "grok fast"
+                ])
+                
+                # Check if user mentioned "grok-code"
+                mentioned_grok_code = any(term in query_lower for term in [
+                    "grok-code", "grokcode", "grok code"
+                ])
+                
+                # If model is grok-fast but user didn't specifically ask for it, use grok-4
+                if is_grok_fast and not mentioned_grok_fast:
+                    model = grok_4_model
+                    logger.info(f"User mentioned 'grok' without 'fast', selecting grok-4 instead of grok-4-fast")
+                # If user mentioned "grok" but no model was detected, and they didn't specify fast/code, use grok-4
+                elif "grok" in query_lower and model is None and not mentioned_grok_fast and not mentioned_grok_code:
+                    model = grok_4_model
+                    logger.info(f"User mentioned 'grok' without specification, selecting grok-4")
                 
                 return brew_type, analysis_objective, model, timestamp_str
                 
@@ -520,45 +558,46 @@ def parse_timestamp(time_str: str) -> Optional[float]:
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
-    welcome_message = """
-👋 Welcome to ENGO Blockchain Analysis Bot!
+    welcome_message = """👋 Welcome to ENGO Blockchain Analysis Bot!
 
 I analyze Ethereum blockchain data and provide insights to help you make informed decisions.
 
-**How to use:**
+IMPORTANT: Please explain your request in your first message so that the correct data and model will be loaded. After that, you can discuss the data with follow-up questions.
+
+How to use:
 - Simply ask for analysis (defaults to latest 15_min brew)
-- Optionally specify brew type: `1_min`, `3_min`, `5_min`, `15_min`, `30_min`, `60_min`
-- Optionally specify AI model (use `/models` to see all)
-- Optionally specify time (GMT): `at 14:30`, `at 2025-11-18 14:30`
+- Optionally specify brew type: 1_min, 3_min, 5_min, 15_min, 30_min, 60_min
+- Optionally specify AI model (use /models to see all)
+- Optionally specify time (GMT): at 14:30, at 2025-11-18 14:30
 
-**⚠️ Data Availability:** Brew data available from **2025-11-10** onwards
+⚠️ Data Availability: Brew data available from 2025-11-10 onwards
 
-**Examples:**
+Examples:
 - "Analyze current market" → Latest 15_min brew
 - "Give me 30_min brew with gemini" → Latest 30_min brew with Gemini
 - "Analyze at 14:30 with gpt" → Brew from 14:30 GMT with GPT
 - "15_min brew at 2025-11-18 10:00" → Specific date & time
 
-**Available Models:**
-- `sonnet` → Claude Sonnet 4.5 (default)
-- `gemini` → Gemini 2.5 Flash (fast)
-- `grok-fast` → Grok 4 Fast
-- `gpt` → GPT-5.1
-- `qwen` → Qwen3 235B
+Available Models:
+- sonnet → Claude Sonnet 4.5 (default)
+- gemini → Gemini 2.5 Flash (fast)
+- grok-fast → Grok 4 Fast
+- grok → Grok 4
+- gpt → GPT-5.1
+- qwen → Qwen3 235B
 
-Use `/models` to see all available models.
+Use /models to see all available models.
 
-**Commands:**
+Commands:
 - /start - Show this message
 - /help - Detailed help
 - /models - List all available models
 - /new_brew - Clear conversation history
 
-**Note:** All times in GMT/UTC. Data from 2025-11-10+. Context max 50k tokens.
+Note: All times in GMT/UTC. Data from 2025-11-10+. Context max 50k tokens.
 
-Let's get started! 🚀
-"""
-    await update.message.reply_text(welcome_message, parse_mode='Markdown')
+Let's get started! 🚀"""
+    await update.message.reply_text(welcome_message)
     
     # Initialize conversation context
     context.user_data['conversation_history'] = []
@@ -929,10 +968,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def main() -> None:
-    """Start the bot."""
+    """Start the bot with graceful shutdown handling for server deployment."""
     # Get Telegram bot token
     token = os.getenv('TGBOT_KEY')
     if not token:
+        logger.error("TGBOT_KEY not found in environment variables")
         raise ValueError("TGBOT_KEY not found in environment variables")
     
     # Set up bot commands menu (appears when user types /)
@@ -947,19 +987,45 @@ def main() -> None:
         await app.bot.set_my_commands(commands)
         logger.info("✅ Bot commands menu configured")
     
-    # Create application with post_init hook
-    application = Application.builder().token(token).post_init(post_init).build()
-    
-    # Add handlers
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("models", models_command))
-    application.add_handler(CommandHandler("new_brew", new_brew_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Start bot
-    logger.info("🚀 ENGO Bot starting...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    try:
+        # Create application with post_init hook
+        application = Application.builder().token(token).post_init(post_init).build()
+        
+        # Add handlers
+        application.add_handler(CommandHandler("start", start_command))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("models", models_command))
+        application.add_handler(CommandHandler("new_brew", new_brew_command))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        
+        # Start bot with error handling
+        logger.info("🚀 ENGO Bot starting...")
+        logger.info("Press Ctrl+C to stop the bot gracefully")
+        
+        # Run polling - python-telegram-bot handles SIGINT/SIGTERM gracefully by default
+        # This will block until stopped with Ctrl+C or SIGTERM
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True  # Ignore updates received while bot was offline
+        )
+        
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt (Ctrl+C). Shutting down gracefully...")
+        try:
+            application.stop()
+            application.shutdown()
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
+        logger.info("✅ Bot stopped")
+    except Exception as e:
+        logger.error(f"Fatal error in bot: {e}", exc_info=True)
+        try:
+            application.stop()
+            application.shutdown()
+        except:
+            pass
+        # Re-raise to allow external monitoring/restart mechanisms to detect failure
+        raise
 
 
 if __name__ == '__main__':
