@@ -186,6 +186,39 @@ connector = create_external_connector(
 HISTORY_DIR = Path(__file__).parent / "history"
 HISTORY_DIR.mkdir(exist_ok=True)
 
+# Message files configuration
+MESSAGES_DIR = Path(__file__).parent
+START_MESSAGE_FILE = MESSAGES_DIR / "start_message.txt"
+HELP_MESSAGE_FILE = MESSAGES_DIR / "help_message.txt"
+
+
+def load_message_file(file_path: Path, **format_kwargs) -> str:
+    """
+    Load a message from a text file and optionally format it.
+    
+    Args:
+        file_path: Path to the message file
+        **format_kwargs: Optional keyword arguments for string formatting
+        
+    Returns:
+        Message content as string
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+        
+        # Format the message if format_kwargs are provided
+        if format_kwargs:
+            content = content.format(**format_kwargs)
+        
+        return content
+    except FileNotFoundError:
+        logger.error(f"Message file not found: {file_path}")
+        return "Message file not found. Please contact the administrator."
+    except Exception as e:
+        logger.error(f"Error loading message file {file_path}: {e}")
+        return "Error loading message. Please contact the administrator."
+
 
 def save_dialogue_log(chat_id: int, user_message: str, assistant_response: str, 
                       metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -558,45 +591,7 @@ def parse_timestamp(time_str: str) -> Optional[float]:
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
-    welcome_message = """👋 Welcome to ENGO Blockchain Analysis Bot!
-
-I analyze Ethereum blockchain data and provide insights to help you make informed decisions.
-
-IMPORTANT: Please explain your request in your first message so that the correct data and model will be loaded. After that, you can discuss the data with follow-up questions.
-
-How to use:
-- Simply ask for analysis (defaults to latest 15_min brew)
-- Optionally specify brew type: 1_min, 3_min, 5_min, 15_min, 30_min, 60_min
-- Optionally specify AI model (use /models to see all)
-- Optionally specify time (GMT): at 14:30, at 2025-11-18 14:30
-
-⚠️ Data Availability: Brew data available from 2025-11-10 onwards
-
-Examples:
-- "Analyze current market" → Latest 15_min brew
-- "Give me 30_min brew with gemini" → Latest 30_min brew with Gemini
-- "Analyze at 14:30 with gpt" → Brew from 14:30 GMT with GPT
-- "15_min brew at 2025-11-18 10:00" → Specific date & time
-
-Available Models:
-- sonnet → Claude Sonnet 4.5 (default)
-- gemini → Gemini 2.5 Flash (fast)
-- grok-fast → Grok 4 Fast
-- grok → Grok 4
-- gpt → GPT-5.1
-- qwen → Qwen3 235B
-
-Use /models to see all available models.
-
-Commands:
-- /start - Show this message
-- /help - Detailed help
-- /models - List all available models
-- /new_brew - Clear conversation history
-
-Note: All times in GMT/UTC. Data from 2025-11-10+. Context max 50k tokens.
-
-Let's get started! 🚀"""
+    welcome_message = load_message_file(START_MESSAGE_FILE)
     await update.message.reply_text(welcome_message)
     
     # Initialize conversation context
@@ -608,57 +603,8 @@ Let's get started! 🚀"""
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /help command."""
     earliest_date_str = EARLIEST_BREW_DATE.strftime('%Y-%m-%d')
-    help_message = f"""
-📖 **ENGO Bot Help**
-
-**Available Brew Types:**
-- `1_min` - 5 blocks analysis
-- `3_min` - 15 blocks analysis
-- `5_min` - 25 blocks analysis
-- `15_min` - 75 blocks analysis (default)
-- `30_min` - 150 blocks analysis
-- `60_min` - 300 blocks analysis
-
-**AI Models:**
-- `sonnet` - Claude Sonnet 4.5 (default, best for analysis)
-- `grok-code` - Grok Code Fast (optimized for code)
-- `gemini` - Gemini 2.5 Flash (fast and efficient)
-- `grok-fast` - Grok 4 Fast (fast responses)
-- `deepseek` - DeepSeek Chat v3 (balanced performance)
-- `gpt` - GPT-5.1 (OpenAI's latest)
-- `grok-4` - Grok 4 (powerful analysis)
-- `qwen` - Qwen3 235B (large model, comprehensive)
-
-Use `/models` command for detailed model information.
-
-**Baseline Types:**
-The bot uses multiple baselines for comparison:
-- `30d` - 30-day historical average
-- `week_day_cadence_90d` - Day-of-week patterns over 90 days
-- `hour_cadence_90d` - Hour-of-day patterns over 90 days
-
-**Time Selection:**
-- Query specific times: `at 14:30` (GMT/UTC)
-- Specific dates: `at 2025-11-18 14:30`
-- Default: Latest brew if no time specified
-
-**⚠️ Data Availability:**
-Brew data only available from **{earliest_date_str}** onwards.
-Older dates will default to current time.
-
-**Tips:**
-- Cadence baselines identify unusual vs. normal patterns
-- Larger brews (30_min, 60_min) = more stable signals
-- Ask follow-up questions about the same brew
-- Use /new_brew to analyze a different time period
-
-**Example Queries:**
-- "What's happening right now?"
-- "Analyze 30_min brew with opus"
-- "Give me 15_min at 14:30 with gpt4"
-- "Focus on stablecoin flows"
-"""
-    await update.message.reply_text(help_message, parse_mode='Markdown')
+    help_message = load_message_file(HELP_MESSAGE_FILE, earliest_date_str=earliest_date_str)
+    await update.message.reply_text(help_message)
 
 
 async def new_brew_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

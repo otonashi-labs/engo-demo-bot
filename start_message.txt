@@ -1,0 +1,42 @@
+🧉 Welcome to ENGO Demo Bot!
+
+This is a demonstration bot showcasing ENGO - The missing layer of chain context for the cognition of tomorrow. Compressed signals, distributions, and baselines tailored for AI agents.
+
+I analyze Ethereum blockchain data and provide insights to help you make informed decisions.
+
+IMPORTANT: Please explain your request in your first message so that the correct data and model will be loaded. After that, you can discuss the data with follow-up questions.
+
+How to use:
+- Simply ask for analysis (defaults to latest 15_min brew)
+- Optionally specify brew type: 1_min, 3_min, 5_min, 15_min, 30_min, 60_min
+- Optionally specify AI model (use /models to see all)
+- Optionally specify time (GMT): at 14:30, at 2025-11-18 14:30
+
+⚠️ Data Availability: Brew data available from 2025-11-10 onwards
+
+Examples:
+- "Analyze current market" → Latest 15_min brew
+- "Give me 30_min brew with gemini" → Latest 30_min brew with Gemini
+- "Analyze at 14:30 with gpt" → Brew from 14:30 GMT with GPT
+- "15_min brew at 2025-11-18 10:00" → Specific date & time
+
+Available Models:
+- sonnet → Claude Sonnet 4.5 (default)
+- gemini → Gemini 2.5 Flash (fast)
+- grok-fast → Grok 4 Fast
+- grok → Grok 4
+- gpt → GPT-5.1
+- qwen → Qwen3 235B
+
+Use /models to see all available models.
+
+Commands:
+- /start - Show this message
+- /help - Detailed help
+- /models - List all available models
+- /new_brew - Clear conversation history
+
+Note: All times in GMT/UTC. Data from 2025-11-10+. Context max 50k tokens.
+
+Let's get started! 🚀
+

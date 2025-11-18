@@ -1,0 +1,49 @@
+📖 ENGO Bot Help
+
+Available Brew Types:
+- 1_min - 5 blocks analysis
+- 3_min - 15 blocks analysis
+- 5_min - 25 blocks analysis
+- 15_min - 75 blocks analysis (default)
+- 30_min - 150 blocks analysis
+- 60_min - 300 blocks analysis
+
+AI Models:
+- sonnet - Claude Sonnet 4.5 (default, best for analysis)
+- grok-code - Grok Code Fast (optimized for code)
+- gemini - Gemini 2.5 Flash (fast and efficient)
+- grok-fast - Grok 4 Fast (fast responses)
+- deepseek - DeepSeek Chat v3 (balanced performance)
+- gpt - GPT-5.1 (OpenAI's latest)
+- grok-4 - Grok 4 (powerful analysis)
+- qwen - Qwen3 235B (large model, comprehensive)
+
+Use /models command for detailed model information.
+
+Baseline Types:
+The bot uses multiple baselines for comparison:
+- 30d - 30-day historical average
+- week_day_cadence_90d - Day-of-week patterns over 90 days
+- hour_cadence_90d - Hour-of-day patterns over 90 days
+
+Time Selection:
+- Query specific times: at 14:30 (GMT/UTC)
+- Specific dates: at 2025-11-18 14:30
+- Default: Latest brew if no time specified
+
+⚠️ Data Availability:
+Brew data only available from {earliest_date_str} onwards.
+Older dates will default to current time.
+
+Tips:
+- Cadence baselines identify unusual vs. normal patterns
+- Larger brews (30_min, 60_min) = more stable signals
+- Ask follow-up questions about the same brew
+- Use /new_brew to analyze a different time period
+
+Example Queries:
+- "What's happening right now?"
+- "Analyze 30_min brew with opus"
+- "Give me 15_min at 14:30 with gpt4"
+- "Focus on stablecoin flows"
+
